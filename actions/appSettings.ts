@@ -1,6 +1,5 @@
 'use server';
 
-import { redirect } from 'next/navigation';
 import { type z } from 'zod';
 import { safeRevalidateTag } from '~/lib/cache';
 import { type AppSetting, appSettingsSchema } from '~/schemas/appSettings';
@@ -44,7 +43,3 @@ export async function setAppSetting<
   }
 }
 
-export async function submitUploadThingForm(token: string) {
-  await setAppSetting('uploadThingToken', token);
-  redirect('/setup?step=3');
-}
