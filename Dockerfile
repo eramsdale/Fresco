@@ -80,10 +80,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/package.json ./
 COPY --from=builder --chown=nextjs:nodejs /app/env.js ./
 COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./
 
-# Switch to non-root user
-USER nextjs
+# Install su-exec for dropping privileges at runtime
+RUN apk add --no-cache su-exec
 
 EXPOSE 3000
 
-# Use exec form for better signal handling
-CMD ["sh", "scripts/migrate-and-start.sh"]
+# Use entrypoint that fixes volume permissions then drops to nextjs user
+CMD ["sh", "scripts/entrypoint.sh"]
