@@ -20,6 +20,7 @@ import type {
 import { getAppSetting } from '~/queries/appSettings';
 import { getInterviewsForExport } from '~/queries/interviews';
 import type {
+  CreateFollowUpInterview,
   CreateInterview,
   DeleteInterviews,
   SyncInterview,
@@ -29,7 +30,7 @@ import { requireApiAuth } from '~/utils/auth';
 import { prisma } from '~/lib/db';
 import { ensureError } from '~/utils/ensureError';
 import { addEvent } from './activityFeed';
-import { uploadZipToUploadThing } from './uploadThing';
+import { uploadExportZip } from './fileStorage';
 
 export async function deleteInterviews(data: DeleteInterviews) {
   await requireApiAuth();
@@ -118,7 +119,7 @@ export const exportSessions = async (
       .then(resequenceIds)
       .then(generateOutputFiles(formattedProtocols, exportOptions))
       .then(archive)
-      .then(uploadZipToUploadThing);
+      .then(uploadExportZip);
 
     void trackEvent({
       type: 'DataExported',
@@ -246,6 +247,87 @@ export async function createInterview(data: CreateInterview) {
       createdInterviewId: null,
     };
   }
+}
+
+export async function createFollowUpInterview(
+  data: CreateFollowUpInterview,
+) {
+  const { sourceInterviewId } = data;
+
+  try {
+    const sourceInterview = await prisma.interview.findUnique({
+      where: { id: sourceInterviewId },
+      include: { participant: true },
+    });
+
+    if (!sourceInterview) {
+      return { error: 'Source interview not found', createdInterviewId: null };
+    }
+
+    if (!sourceInterview.finishTime) {
+      return {
+        error: 'Source interview has not been completed',
+        createdInterviewId: null,
+      };
+    }
+
+    const createdInterview = await prisma.interview.create({
+      select: {
+        participant: true,
+        id: true,
+      },
+      data: {
+        network: sourceInterview.network ?? Prisma.JsonNull,
+        participant: {
+          connect: { id: sourceInterview.participantId },
+        },
+        protocol: {
+          connect: { id: sourceInterview.protocolId },
+        },
+        sourceInterview: {
+          connect: { id: sourceInterviewId },
+        },
+      },
+    });
+
+    void addEvent(
+      'Interview Started',
+      `Follow-up interview started for participant "${
+        createdInterview.participant.label ??
+        createdInterview.participant.identifier
+      }"`,
+    );
+
+    safeRevalidateTag('getInterviews');
+    safeRevalidateTag('getParticipants');
+    safeRevalidateTag('summaryStatistics');
+
+    return { error: null, createdInterviewId: createdInterview.id };
+  } catch (error) {
+    const e = ensureError(error);
+
+    void trackEvent({
+      type: 'Error',
+      name: e.name,
+      message: e.message,
+      stack: e.stack,
+      metadata: {
+        path: '~/actions/interviews.ts',
+      },
+    });
+
+    return {
+      error: 'Failed to create follow-up interview',
+      createdInterviewId: null,
+    };
+  }
+}
+
+export async function createFollowUpInterviewFromDashboard(
+  data: CreateFollowUpInterview,
+) {
+  await requireApiAuth();
+  return createFollowUpInterview(data);
 }
 
 export async function syncInterview(data: SyncInterview) {

@@ -54,6 +54,8 @@ export const InterviewColumns = (): ColumnDef<
       );
     },
     cell: ({ row }) => {
+      const isFollowUp = !!row.original.sourceInterviewId;
+
       return (
         <div
           className="flex items-center gap-2"
@@ -64,6 +66,11 @@ export const InterviewColumns = (): ColumnDef<
               {row.original.participant.identifier}
             </span>
           </Badge>
+          {isFollowUp && (
+            <Badge variant="secondary" className="text-xs">
+              Follow-up
+            </Badge>
+          )}
         </div>
       );
     },
