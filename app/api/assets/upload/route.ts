@@ -15,9 +15,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'No files provided' }, { status: 400 });
   }
 
-  const results = await Promise.all(
-    files.map(async (file) => saveAssetFile(file)),
-  );
+  try {
+    const results = await Promise.all(
+      files.map(async (file) => saveAssetFile(file)),
+    );
 
-  return NextResponse.json(results);
+    return NextResponse.json(results);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Asset upload failed:', error);
+    const message =
+      error instanceof Error ? error.message : 'Unknown upload error';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
