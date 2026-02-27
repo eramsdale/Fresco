@@ -15,10 +15,8 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml* prisma.config.ts env.js ./
 COPY lib/db/schema.prisma ./lib/db/schema.prisma
 
-# Install pnpm and dependencies with cache mount for faster builds
-RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
-    --mount=type=cache,target=/root/.cache/pnpm \
-    corepack enable pnpm && pnpm i --frozen-lockfile --prefer-offline
+# Install pnpm and dependencies
+RUN corepack enable pnpm && pnpm i --frozen-lockfile
 
 # ---------
 
